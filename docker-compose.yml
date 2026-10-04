@@ -1,0 +1,149 @@
+# ==============================================================================
+# PracPrep — Multi-Container Docker Compose Stack
+# Architecture:
+#   1. db:       PostgreSQL 16 relational database (internal private network)
+#   2. backend:  FastAPI asynchronous REST API (internal private network)
+#   3. frontend: Nginx static hosting & reverse proxy (public entrypoint on port 80)
+#
+# Quickstart:
+#   docker compose up --build -d
+#   docker compose exec backend alembic upgrade head
+# ==============================================================================
+
+services:
+  # ----------------------------------------------------------------------------
+  # 1. Database Service (PostgreSQL 16)
+  # ----------------------------------------------------------------------------
+  db:
+    image: postgres:16-alpine
+    container_name: pracprep-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-pracprep}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - pracprep-network
+    # PostgreSQL port is kept internal by default.
+    # To expose directly on host for database inspection/GUI clients, uncomment:
+    # ports:
+    #   - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-postgres} -d $${POSTGRES_DB:-pracprep}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ----------------------------------------------------------------------------
+  # 1B. Dedicated Integration Test Database (PostgreSQL 16)
+  # Activated only via the 'test' profile:
+  #   docker compose --profile test up -d test-db
+  # ----------------------------------------------------------------------------
+  test-db:
+    profiles:
+      - test
+    image: postgres:16-alpine
+    container_name: pracprep-test-db
+    restart: "no"
+    environment:
+      POSTGRES_USER: ${TEST_POSTGRES_USER:-postgres_test}
+      POSTGRES_PASSWORD: ${TEST_POSTGRES_PASSWORD:-postgres_test_password}
+      POSTGRES_DB: ${TEST_POSTGRES_DB:-pracprep_test}
+    ports:
+      - "${TEST_POSTGRES_PORT:-5433}:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    networks:
+      - pracprep-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${TEST_POSTGRES_USER:-postgres_test} -d $${TEST_POSTGRES_DB:-pracprep_test}"]
+      interval: 3s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  # ----------------------------------------------------------------------------
+  # 2. Backend API Service (FastAPI / Uvicorn)
+  # ----------------------------------------------------------------------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: pracprep-backend
+    restart: unless-stopped
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-pracprep}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-insecure-dev-secret-key-change-in-production-min32chars}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost,http://localhost:80,http://127.0.0.1,http://127.0.0.1:80}
+      DEFAULT_AI_PROVIDER: ${DEFAULT_AI_PROVIDER:-demonstration}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+      RATE_LIMITING_ENABLED: ${RATE_LIMITING_ENABLED:-true}
+      MAX_UPLOAD_SIZE_BYTES: ${MAX_UPLOAD_SIZE_BYTES:-26214400}
+      UPLOAD_DIR: /app/uploads/documents
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_FORMAT: ${LOG_FORMAT:-auto}
+    volumes:
+      - backend_uploads:/app/uploads
+    networks:
+      - pracprep-network
+    depends_on:
+      db:
+        condition: service_healthy
+    # Backend port is kept internal by default; all traffic flows through Nginx.
+    # To expose directly on host for debugging (e.g. Swagger UI at localhost:8000/docs), uncomment:
+    # ports:
+    #   - "8000:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health/ready || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ----------------------------------------------------------------------------
+  # 3. Frontend Web Service (Nginx Static Host & API Reverse Proxy)
+  # ----------------------------------------------------------------------------
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ""
+    container_name: pracprep-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    networks:
+      - pracprep-network
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+# ------------------------------------------------------------------------------
+# Isolated Application Network
+# ------------------------------------------------------------------------------
+networks:
+  pracprep-network:
+    driver: bridge
+    name: pracprep_bridge_network
+
+# ------------------------------------------------------------------------------
+# Named Persistent Volumes
+# ------------------------------------------------------------------------------
+volumes:
+  postgres_data:
+    name: pracprep_postgres_data
+  backend_uploads:
+    name: pracprep_backend_uploads
