@@ -45,6 +45,7 @@ function createMockResponse(body, init = {}) {
 async function runTests() {
   console.log("=== Running TASK-15.1 ADR-010 Error Envelope & Frontend Tests ===");
 
+  
   // 1. ADR-010 Standard HTTP Error Envelope Parsing
   {
     const mockFetch = async () =>
@@ -77,6 +78,7 @@ async function runTests() {
     console.log("✓ Test 1 Passed: ADR-010 standard error envelope parsed with machine code and message");
   }
 
+  
   // 2. ADR-010 Structured Validation Error (422)
   {
     const mockFetch = async () =>
@@ -124,6 +126,7 @@ async function runTests() {
     console.log("✓ Test 2 Passed: ADR-010 validation details correctly populated in ApiError.validationErrors");
   }
 
+  
   // 3. ADR-010 429 Rate Limit Error
   {
     const mockFetch = async () =>
@@ -154,6 +157,7 @@ async function runTests() {
     console.log("✓ Test 3 Passed: 429 Rate limit error correctly identified with RATE_LIMIT_EXCEEDED code");
   }
 
+  
   // 4. ADR-010 500 Internal Server Error
   {
     const mockFetch = async () =>
@@ -184,6 +188,7 @@ async function runTests() {
     console.log("✓ Test 4 Passed: 500 Internal error envelope parsed without leaking implementation details");
   }
 
+  
   // 5. Backward Compatibility: Legacy detail string
   {
     const mockFetch = async () =>
