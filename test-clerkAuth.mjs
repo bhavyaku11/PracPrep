@@ -13,6 +13,9 @@
  * 9. Native JWT login and register regression testing
  */
 
+
+
+
 import assert from "node:assert";
 import { tokenManager, ApiError } from "./src/lib/apiClient.ts";
 import { authService } from "./src/services/authService.ts";
