@@ -33,6 +33,7 @@ const mockLocalStorage = {
   clear: () => mockStorageStore.clear(),
 };
 
+
 globalThis.localStorage = mockLocalStorage;
 
 const eventListeners = new Map();
