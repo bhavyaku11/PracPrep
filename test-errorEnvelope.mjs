@@ -33,6 +33,7 @@ function createMockResponse(body, init = {}) {
       headers.set("content-type", "text/plain");
     }
   }
+  
 
   return {
     ok: status >= 200 && status < 300,
