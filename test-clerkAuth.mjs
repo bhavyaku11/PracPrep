@@ -45,6 +45,7 @@ globalThis.window = {
   removeEventListener: () => {},
 };
 
+
 function createMockResponse(body, init = {}) {
   const status = init.status ?? 200;
   const statusText = init.statusText ?? (status === 200 ? "OK" : "Error");
