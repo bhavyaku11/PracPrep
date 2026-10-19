@@ -79,6 +79,7 @@ console.log("=== Running TASK-08.1 API Client & Interceptor Tests ===");
     "http://api.pracprep.local/api/v1/auth/login",
     "Should not duplicate /api/v1 if already in baseUrl"
   );
+  
 
   assert.strictEqual(
     client.buildUrl("https://external.cdn/asset.json"),
