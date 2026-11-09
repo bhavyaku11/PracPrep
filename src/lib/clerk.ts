@@ -7,6 +7,7 @@
 
 export const CLERK_ENV_KEY = "VITE_CLERK_PUBLISHABLE_KEY";
 
+
 /**
  * Resolves the Clerk Publishable Key safely from import.meta.env or process.env.
  */
